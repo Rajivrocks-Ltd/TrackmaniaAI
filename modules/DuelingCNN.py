@@ -62,10 +62,10 @@ class DuelingCNN(nn.Module):
         self.flat_features = self.conv4.out_channels * self.h_out * self.w_out
 
         # MLP for the value function V(s)
-        self.value_stream = mlp([self.flat_features, 256, 1], nn.ReLU, nn.Identity)
+        self.value_stream = mlp([self.flat_features, 256, 1], nn.ReLU)
 
         # MLP for the advantage function A(s, a)
-        self.advantage_stream = mlp([self.flat_features, 256, num_actions], nn.ReLU, nn.Identity)
+        self.advantage_stream = mlp([self.flat_features, 256, num_actions], nn.ReLU)
 
     def forward(self, x):
         """
@@ -75,8 +75,10 @@ class DuelingCNN(nn.Module):
         Returns:
             Q values for each action.
         """
+        images = x[3] # according to the tutorial
+
         # Forward pass through convolutional layers
-        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv1(images))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = F.relu(self.conv4(x))

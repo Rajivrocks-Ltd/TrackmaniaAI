@@ -86,11 +86,9 @@ class DuelingDQNTrainingAgent(TrainingAgent):
 
         # First, we decompose our batch into its relevant components, ignoring the "truncated" signal:
         o, a, r, o2, d, _ = batch
-        "TODO: how are we implementing the action selection"
 
         self.update_memory(o, a, r, o2, d)
         loss = self.update()
-
 
         # Optionally update the target network
         if self.steps_done % self.update_buffer_interval == 0:
