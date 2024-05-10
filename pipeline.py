@@ -1,9 +1,8 @@
 from tmrl.util import partial
-from actors.trainingAgent import SACTrainingAgent
+from actors.myDQNTrainingAgent import DQN_trainer
 from actors.ActorCritic import VanillaCNNActorCritic
 from actors.baseActor import MyActorModule
-from modules.VanillaCNN_base import VanillaCNN
-from modules.VanillaCNNCritic import VanillaCNNQFunction
+from modules.DQN import EpsilonGreedyDQN
 import tmrl.config.config_constants as cfg
 import tmrl.config.config_objects as cfg_obj
 from tmrl.networking import Trainer, RolloutWorker, Server
@@ -62,8 +61,8 @@ memory_cls = partial(memory_base_cls,
                      crc_debug=False)
 
 # Partially instantiate the training agent
-training_agent_cls = partial(SACTrainingAgent,
-                             model_cls=VanillaCNNActorCritic,
+training_agent_cls = partial(DQN_trainer,
+                             model_cls=EpsilonGreedyDQN,
                              gamma=0.99,
                              polyak=0.995,
                              alpha=0.02,
