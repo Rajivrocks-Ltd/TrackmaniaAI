@@ -17,6 +17,7 @@ max_training_steps_per_env_step = cfg.TMRL_CONFIG["MAX_TRAINING_STEPS_PER_ENVIRO
 update_model_interval = cfg.TMRL_CONFIG["UPDATE_MODEL_INTERVAL"]
 update_buffer_interval = cfg.TMRL_CONFIG["UPDATE_BUFFER_INTERVAL"]
 device_trainer = 'cuda' if cfg.CUDA_TRAINING else 'cpu'
+print(device_trainer)
 memory_size = cfg.TMRL_CONFIG["MEMORY_SIZE"]
 batch_size = cfg.TMRL_CONFIG["BATCH_SIZE"]
 

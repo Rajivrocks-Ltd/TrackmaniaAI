@@ -3,6 +3,7 @@ from auxiliary.create_jsons import TorchJSONDecoder, TorchJSONEncoder
 from modules.DuelingCNN import DuelingCNN
 import json
 import numpy as np
+import torch
 
 class MyDuelingDQNActorModule(TorchActorModule):
     def __init__(self, observation_space, action_space):
@@ -28,14 +29,15 @@ class MyDuelingDQNActorModule(TorchActorModule):
         }
 
     def save(self, path):
-        with open(path, 'w') as json_file:
-            json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+        # with open(path, 'w') as json_file:
+        #     json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+        torch.save(self.state_dict(), path)
 
     def load(self, path, device):
         self.device = device
-        with open(path, 'r') as json_file:
-            state_dict = json.load(json_file, cls=TorchJSONDecoder)
-        self.load_state_dict(state_dict)
+        # with open(path, 'r') as json_file:
+        #     state_dict = json.load(json_file, cls=TorchJSONDecoder)
+        self.load_state_dict(torch.load(path, map_location=self.device))
         self.to_device(device)
         return self
 
