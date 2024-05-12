@@ -20,6 +20,7 @@ Setup can be done for both, so multiple people can train models on different mac
         2. [Generating keypair](#generating-keypair)
         3. [Copying to remote server(s)](#copying-to-remote-servers)
 2. [Remote Setup](#remote-setup)
+    1. [Setting up video cards](#setting-up-video-cards)
 
 
 ----
@@ -178,7 +179,8 @@ Once the SSH setup has been completed, you can now connect to the remote servers
 ```powershell
 ssh silver-tunnel 
 ```
-to set up a tunnel in one Powershell window. Then, you can run the following commands to connect to the respective servers:
+to set up a tunnel in one Powershell window. Then, you can run the following commands to test your connection to each
+respective server:
 ```powershell
 ssh -p 1234 <LU username>@localhost
 ssh -p 1235 <LU username>@localhost
@@ -189,12 +191,73 @@ or run one of the following commands to connect to the respective servers:
 ssh localduranium
 ssh localvibranium
 ```
-if this has been set up in your SSH config file.
+if this has been set up in your SSH config file. Examples of this are also shown in the 
+[Remote Access to REL][remote-access-liacs-rel] document.
 
-Of course, you can change the ports you wish to LocalForward to, as long as they are not already in use.
+Of course, you can change the ports you wish to LocalForward to in your SSH config file, as long as they are not 
+already in use.
+
+### Setting up video cards
+
+You can run the following command locally on the server to see which cards are in use:
+```sh
+nvidia-smi 
+```
+
+or remotely by running one of the following commands (substitute `<port>` with the port you've set up in the SSH config file for the respective server):
+```sh
+ssh -p <port> <LU username>@localhost "nvidia-smi"
+ssh localduranium "nvidia-smi"
+ssh localvibranium "nvidia-smi"
+```
 
 
-# TODO: Add training setup part
+This shows a screen like this:
+```
+Mon May 13 15:05:50 2024
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 545.23.08              Driver Version: 545.23.08    CUDA Version: 12.3     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA GeForce RTX 3090        Off | 00000000:3B:00.0 Off |                  N/A |
+|100%   74C    P2             336W / 350W |  22938MiB / 24576MiB |     96%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   1  NVIDIA GeForce RTX 3090        Off | 00000000:AF:00.0 Off |                  N/A |
+| 30%   34C    P8              20W / 350W |    430MiB / 24576MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|    0   N/A  N/A     27575      C   python                                    22930MiB |
+|    1   N/A  N/A     27575      C   python                                      422MiB |
++---------------------------------------------------------------------------------------+
+```
+
+This shows that the first GPU is being used by a Python process with PID 27575. This can be useful to check if the
+video cards are in use and being used by your process for example. To find out the PID of the process you're running 
+(e.g. Python), you can run the following command:
+```sh
+ps aux | grep python
+```
+
+If you want to use only a single GPU to not hog resources, you can specify the GPU you want to use by setting the `CUDA_VISIBLE_DEVICES` 
+through the command:
+```commandline
+export CUDA_VISIBLE_DEVICES=<GPU ID>
+```
+
+This command persists for the lifetime of a terminal session, can be set before a command to run a specific process 
+on a specific GPU, or, when using it in a script, it only persists for the duration that that script is being run.
+
 
 [openssh-windows]: https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse?tabs=gui
 [auto-start-ssh-agent]: https://stackoverflow.com/questions/44203409/how-to-start-ssh-agent-on-windows-automatically
+[remote-access-liacs-rel]: https://liacs.leidenuniv.nl/~takesfw/SNACS/liacs-rel-ssh-access.pdf
