@@ -4,7 +4,7 @@ import torch.optim as optim
 from collections import deque
 import random
 import numpy as np
-from actors.DuelingDQNActor import MyDuelingDQNActorModule
+from actors.DoubleDQNActor import MyDoubleDQNActorModule
 from tmrl.util import cached_property
 from tmrl.training import TrainingAgent
 from tmrl.custom.utils.nn import copy_shared, no_grad
@@ -14,9 +14,8 @@ from copy import deepcopy
 # -> train(batch): optimizes the model from a batch of RL samples
 # -> get_actor(): outputs a copy of the current ActorModule
 
-class DuelingDQNTrainingAgent(TrainingAgent):
+class DoubleDQNTrainingAgent(TrainingAgent):
 
-    # no-grad copy of the model used to send the Actor weights in get_actor():
     model_nograd = cached_property(lambda self: no_grad(copy_shared(self.model)))
 
     def __init__(self,
@@ -26,13 +25,12 @@ class DuelingDQNTrainingAgent(TrainingAgent):
                  observation_space=None,
                  action_space=None,
                  device=None,
-                 model_cls=MyDuelingDQNActorModule,
+                 model_cls=MyDoubleDQNActorModule,
                  gamma=0.99,
                  lr=1e-4):
         super().__init__(observation_space=observation_space,
                          action_space=action_space,
                          device=device)
-
 
         model = model_cls(observation_space, action_space)
         self.model = model.to(self.device)
@@ -51,10 +49,12 @@ class DuelingDQNTrainingAgent(TrainingAgent):
 
     def update(self):
 
-        batch = random.sample(self.memory, self.batch_size)
-        o, a, r, o2, d, _ = batch
+        if len(self.memory) < self.batch_size:
+            return None
 
-        'Create from numpy arrays, torch tensor and make them 2D to work with batches'
+        batch = random.sample(self.memory, self.batch_size)
+        o, a, r, o2, d, _ = zip(*batch)
+
         # Convert to tensors
         states = torch.FloatTensor(np.float32(o)).to(self.device)
         actions = torch.LongTensor(a).unsqueeze(1).to(self.device)
@@ -65,12 +65,17 @@ class DuelingDQNTrainingAgent(TrainingAgent):
         # Compute current Q values: Q(s, a)
         current_q_values = self.model(states).gather(1, actions)
 
-        # Compute expected Q values from target actions: max_a' Q'(s', a')
-        next_q_values = self.target_model(next_states).max(1)[0].detach()
+        # Compute next actions using online network
+        next_actions = self.model(next_states).max(1)[1].unsqueeze(1)
+
+        # Compute next Q values using target network and next actions
+        next_q_values = self.target_model(next_states).gather(1, next_actions).detach()
+
+        # Compute expected Q values
         expected_q_values = rewards + self.gamma * next_q_values * (1 - dones)
 
         # Compute loss
-        loss = F.mse_loss(current_q_values.squeeze(), expected_q_values)
+        loss = F.mse_loss(current_q_values, expected_q_values)
 
         # Gradient descent update
         self.optimizer.zero_grad()
@@ -96,4 +101,4 @@ class DuelingDQNTrainingAgent(TrainingAgent):
 
         self.steps_done += 1
 
-        return {'loss': loss.item()}
+        return {'loss': loss.item() if loss else None}

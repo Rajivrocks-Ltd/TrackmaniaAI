@@ -1,7 +1,7 @@
 from tmrl.util import partial
-from actors.trainingAgentDuelingDQN import DuelingDQNTrainingAgent
-from actors.DuelingDQNActor import MyDuelingDQNActorModule
-from modules.DuelingCNN import DuelingCNN
+from actors.trainingAgentDoubleDQN import DoubleDQNTrainingAgent
+from actors.DoubleDQNActor import MyDoubleDQNActorModule
+from modules.DoubleCNN import DQN
 import tmrl.config.config_constants as cfg
 import tmrl.config.config_objects as cfg_obj
 from tmrl.networking import Trainer, RolloutWorker, Server
@@ -60,8 +60,8 @@ memory_cls = partial(memory_base_cls,
                      crc_debug=False)
 
 # Partially instantiate the training agent
-training_agent_cls = partial(DuelingDQNTrainingAgent,
-                             model_cls=MyDuelingDQNActorModule,
+training_agent_cls = partial(DoubleDQNTrainingAgent,
+                             model_cls=MyDoubleDQNActorModule,
                              gamma=0.99,
                              lr=0.001,
                              batch_size=batch_size,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     elif args.worker or args.test:
         rw = RolloutWorker(env_cls=env_cls,
-                           actor_module_cls=MyDuelingDQNActorModule,
+                           actor_module_cls=MyDoubleDQNActorModule,
                            sample_compressor=sample_compressor,
                            device=device_worker,
                            server_ip=server_ip_for_worker,

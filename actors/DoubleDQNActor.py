@@ -1,18 +1,20 @@
 from tmrl.actor import TorchActorModule
 from auxiliary.create_jsons import TorchJSONDecoder, TorchJSONEncoder
-from modules.DuelingCNN import DuelingCNN
-import json
+from modules.DoubleCNN import DQN
 import numpy as np
 
-class MyDuelingDQNActorModule(TorchActorModule):
+
+class MyDoubleDQNActorModule(TorchActorModule):
     def __init__(self, observation_space, action_space):
         super().__init__(observation_space, action_space)
 
         # And initialize our attributes:
         dim_act = action_space.shape[0]  # dimensionality of actions
 
-        # Initialize the Dueling DQN network
-        self.net = DuelingCNN(dim_act)
+        # Initialize the Dueling DQN networks
+        self.online_net = DQN(dim_act)
+        self.target_net = DQN(dim_act)
+        self.target_net.load_state_dict(self.online_net.state_dict())  # Initialize target network with online network's parameters
 
         # Initialize parameters for action selection
         self.eps_start = 0.9
@@ -29,13 +31,14 @@ class MyDuelingDQNActorModule(TorchActorModule):
 
     def save(self, path):
         with open(path, 'w') as json_file:
-            json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+            json.dump(self.online_net.state_dict(), json_file, cls=TorchJSONEncoder)
 
     def load(self, path, device):
         self.device = device
         with open(path, 'r') as json_file:
             state_dict = json.load(json_file, cls=TorchJSONDecoder)
-        self.load_state_dict(state_dict)
+        self.online_net.load_state_dict(state_dict)
+        self.target_net.load_state_dict(state_dict)
         self.to_device(device)
         return self
 
@@ -47,7 +50,7 @@ class MyDuelingDQNActorModule(TorchActorModule):
         if np.random.rand() < self.epsilon():
             self.step += 1
             return self.action_correspondance[
-                np.argmax(self.net(obs).detach().cpu().numpy())
+                np.argmax(self.online_net(obs).detach().cpu().numpy())
             ]
         self.step += 1
         return self.action_correspondance[
@@ -55,4 +58,4 @@ class MyDuelingDQNActorModule(TorchActorModule):
         ]
 
     def forward(self, obs):
-        return self.net(obs)
+        return self.online_net(obs)

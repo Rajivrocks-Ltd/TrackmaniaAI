@@ -1,3 +1,4 @@
+
 import tmrl.config.config_constants as cfg
 import torch
 import torch.nn as nn
@@ -35,17 +36,17 @@ def conv2d_out_dims(conv_layer, h_in, w_in):
     w_out = floor((w_in + 2 * conv_layer.padding[1] - conv_layer.dilation[1] * (conv_layer.kernel_size[1] - 1) - 1) / conv_layer.stride[1] + 1)
     return h_out, w_out
 
-class DuelingCNN(nn.Module):
+class DQN(nn.Module):
     def __init__(self, num_actions):
         """
-        Dueling CNN model for DQN.
+        DQN model.
         Args:
             img_height (int): Height of the input images.
             img_width (int): Width of the input images.
             imgs_buf_len (int): Number of image channels, generally the stack of frames.
-            num_actions (int): Number of possible actions, for the advantage layer.
+            num_actions (int): Number of possible actions.
         """
-        super(DuelingCNN, self).__init__()
+        super(DQN, self).__init__()
 
         # Convolutional layers
         self.h_out, self.w_out = img_height, img_width
@@ -61,11 +62,8 @@ class DuelingCNN(nn.Module):
         # Calculate flat features after convolution
         self.flat_features = self.conv4.out_channels * self.h_out * self.w_out
 
-        # MLP for the value function V(s)
-        self.value_stream = mlp([self.flat_features, 256, 1], nn.ReLU)
-
-        # MLP for the advantage function A(s, a)
-        self.advantage_stream = mlp([self.flat_features, 256, num_actions], nn.ReLU)
+        # MLP for action values
+        self.action_values = mlp([self.flat_features, 256, num_actions], nn.ReLU)
 
     def forward(self, x):
         """
@@ -84,11 +82,7 @@ class DuelingCNN(nn.Module):
         x = F.relu(self.conv4(x))
         x = x.view(-1, num_flat_features(x))  # Flatten the features for the MLP
 
-        # Compute the value and advantage streams
-        value = self.value_stream(x)
-        advantage = self.advantage_stream(x)
-
-        # Combine the streams to get Q-values using the dueling network architecture
-        q_values = value + (advantage - advantage.mean(dim=1, keepdim=True))
+        # Compute action values
+        q_values = self.action_values(x)
 
         return q_values
