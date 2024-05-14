@@ -195,11 +195,14 @@ if this has been set up in your SSH config file. Examples of this are also shown
 [Remote Access to REL][remote-access-liacs-rel] document.
 
 Of course, you can change the ports you wish to LocalForward to in your SSH config file, as long as they are not 
-already in use.
+already in use. To check which ports are in use, you can run the following command:
+```powershell
+netstat -a -b
+```
 
-### Setting up video cards
+### Information on GPUs
 
-You can run the following command locally on the server to see which cards are in use:
+You can run the following command locally on the server to see which GPUs are in use:
 ```sh
 nvidia-smi 
 ```
@@ -212,7 +215,7 @@ ssh localvibranium "nvidia-smi"
 ```
 
 
-This shows a screen like this:
+This command outputs the following information:
 ```
 Mon May 13 15:05:50 2024
 +---------------------------------------------------------------------------------------+
@@ -255,8 +258,41 @@ export CUDA_VISIBLE_DEVICES=<GPU ID>
 ```
 
 This command persists for the lifetime of a terminal session, can be set before a command to run a specific process 
-on a specific GPU, or, when using it in a script, it only persists for the duration that that script is being run.
+on a specific GPU, or, when using it in a script, persists for the run duration of the script.
 
+### Setting up virtual environment
+Since we only need to run the `Trainer` in a remote environment, we do not need to install 
+OpenPlanet. Instead, we can just create a virtual environment and install the necessary packages. You can either setup an
+SSH key for git, or use `scp` to copy the `requirements.txt` to the server. 
+
+[//]: # (```commandline)
+
+[//]: # (scp ~/path/to/requirements.txt <server name>:/home/<LU username>/path/to/requirements.txt)
+
+[//]: # (```)
+
+Then, you can install the necessary packages by running the following commands:
+```sh
+# Make a new virtual environment named mgaia.
+conda create --name mgaia python=3.11 --verbose
+
+# Activate the virtual environment
+conda activate mgaia
+
+# Install the tmrl package
+pip install tmrl
+# Validate the installation
+python -m tmrl --install
+```
+
+
+
+
+
+## References
+1. [OpenSSH Windows Installation][openssh-windows]
+2. [Auto-start SSH Agent][auto-start-ssh-agent]
+3. [Remote Access to LIACS Servers][remote-access-liacs-rel]
 
 [openssh-windows]: https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse?tabs=gui
 [auto-start-ssh-agent]: https://stackoverflow.com/questions/44203409/how-to-start-ssh-agent-on-windows-automatically
