@@ -83,12 +83,20 @@ class DDPGTrainingAgent(TrainingAgent):
 
         pi = self.model.actor(o)
 
+        # Adding a part to detach the critic from the gradient computation graph
+        for param in self.model.parameters():
+            param.requires_grad = False
+
         actor_loss = -self.model.critic(o, pi).mean()
 
         # Now we can train our policy in the opposite direction of this loss' gradient:
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+
+        # Adding the part to attach back the critic into the gradient computation graph
+        for param in self.model.parameters():
+            param.requires_grad = True
 
         # Finally, we update our target model with a slowly moving exponential average:
         with torch.no_grad():
