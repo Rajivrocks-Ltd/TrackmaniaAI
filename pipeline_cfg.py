@@ -9,21 +9,17 @@ from tmrl.training_offline import TorchTrainingOffline
 from tmrl.util import partial
 import tmrl.config.config_constants as cfg
 
-from models.actor_critic_model import MLPActorCritic, SquashedGaussianMLPActor
+from models.actor_critic_model import MLPActorCritic, DeterministicMLPActor
 from agent.actor_critic_agent import ActorCriticAgent
 
 
-ALG_NAME = "LIDAR-SAC"
+ALG_NAME = "LIDAR-DDPG"
 
 # Algorithm hyperparameters
-learn_entropy_coef = False
 lr_actor = 0.00001
 lr_critic = 0.00005
-lr_entropy = 0.0003
 gamma = 0.995
 polyak = 0.995
-target_entropy = -0.5
-alpha = 0.01
 optimizer_actor = "adam"
 optimizer_critic = "adam"
 betas_actor = [0.997, 0.997]
@@ -34,12 +30,12 @@ l2_critic = 0.0
 # Other algorithm's parameters
 DUMP_RUN_INSTANCE_FN = None
 LOAD_RUN_INSTANCE_FN = None
-UPDATER_FN = update_run_instance if ALG_NAME in ["LIDAR-SAC"] else None
+UPDATER_FN = update_run_instance if ALG_NAME in ["LIDAR-DDPG"] else None
 
 
 # Model and policy
 TRAIN_MODEL = MLPActorCritic
-POLICY = SquashedGaussianMLPActor
+POLICY = DeterministicMLPActor
 
 
 # LIDAR Interface and config dict
@@ -77,12 +73,8 @@ AGENT = partial(
         model_cls=TRAIN_MODEL,
         lr_actor=lr_actor,
         lr_critic=lr_critic,
-        lr_entropy=lr_entropy,
         gamma=gamma,
         polyak=polyak,
-        learn_entropy_coef=learn_entropy_coef,
-        target_entropy=target_entropy,
-        alpha=alpha,
         optimizer_actor=optimizer_actor,
         optimizer_critic=optimizer_critic,
         # Take a look if the changes below didn't break the algorithm

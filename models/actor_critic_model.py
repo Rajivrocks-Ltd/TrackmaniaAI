@@ -20,7 +20,24 @@ LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 EPSILON = 1e-7
 
-class SquashedGaussianMLPActor(TorchActorModule):
+class OUNoise:
+    def __init__(self, size, mu=0.0, theta=0.15, sigma=0.3):
+        self.mu = mu * np.ones(size)
+        self.theta = theta
+        self.sigma = sigma
+        self.state = np.copy(self.mu)
+
+    def reset(self):
+        self.state = np.copy(self.mu)
+
+    def sample(self):
+        x = self.state
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
+        self.state = x + dx
+        return self.state
+
+
+class DeterministicMLPActor(TorchActorModule):
     def __init__(self, observation_space, action_space, hidden_sizes=(256, 256), activation=nn.ReLU):
         super().__init__(observation_space, action_space)
         try:
@@ -31,49 +48,29 @@ class SquashedGaussianMLPActor(TorchActorModule):
             self.tuple_obs = False
         dim_act = action_space.shape[0]
         act_limit = action_space.high[0]
-        self.net = mlp([dim_obs] + list(hidden_sizes), activation, activation)
-        self.mu_layer = nn.Linear(hidden_sizes[-1], dim_act)
-        self.log_std_layer = nn.Linear(hidden_sizes[-1], dim_act)
+        self.net = mlp([dim_obs] + list(hidden_sizes) + [dim_act], activation, activation)
+        # self.mu_layer = nn.Linear(hidden_sizes[-1], dim_act)
+        # self.log_std_layer = nn.Linear(hidden_sizes[-1], dim_act)
         self.act_limit = act_limit
 
-    def forward(self, obs, test=False, with_logprob=True):
+        self.noise = OUNoise(dim_act)
+
+    def forward(self, obs, test=False):
         x = torch.cat(obs, -1) if self.tuple_obs else torch.flatten(obs, start_dim=1)
-        net_out = self.net(x)
-        mu = self.mu_layer(net_out)
-        log_std = self.log_std_layer(net_out)
-        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
-        std = torch.exp(log_std)
-
-        # Pre-squash distribution and sample
-        pi_distribution = Normal(mu, std)
-        if test:
-            # Only used for evaluating policy at test time.
-            pi_action = mu
-        else:
-            pi_action = pi_distribution.rsample()
-
-        if with_logprob:
-            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
-            # NOTE: The correction formula is a little bit magic. To get an understanding
-            # of where it comes from, check out the original SAC paper (arXiv 1801.01290)
-            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
-            # Try deriving it yourself as a (very difficult) exercise. :)
-            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            logp_pi -= (2 * (np.log(2) - pi_action - F.softplus(-2 * pi_action))).sum(axis=1)
-        else:
-            logp_pi = None
-
-        pi_action = torch.tanh(pi_action)
+        mu = self.net(x)
+        pi_action = torch.tanh(mu)
         pi_action = self.act_limit * pi_action
 
-        # pi_action = pi_action.squeeze()
-
-        return pi_action, logp_pi
+        return pi_action
 
     def act(self, obs, test=False):
         with torch.no_grad():
-            a, _ = self.forward(obs, test, False)
-            res = a.squeeze().cpu().numpy()
+            a = self.forward(obs, test)
+            a = a.cpu().numpy()
+            noise = self.noise.sample()
+            a += noise
+            a = np.clip(a, -self.act_limit, self.act_limit)
+            res = a.squeeze()
             if not len(res.shape):
                 res = np.expand_dims(res, 0)
             return res
@@ -106,13 +103,12 @@ class MLPActorCritic(nn.Module):
         act_limit = action_space.high[0]
 
         # build policy and value functions
-        self.actor = SquashedGaussianMLPActor(observation_space, action_space, hidden_sizes, activation)
-        self.q1 = MLPQFunction(observation_space, action_space, hidden_sizes, activation)
-        self.q2 = MLPQFunction(observation_space, action_space, hidden_sizes, activation)
+        self.actor = DeterministicMLPActor(observation_space, action_space, hidden_sizes, activation)
+        self.critic = MLPQFunction(observation_space, action_space, hidden_sizes, activation)
 
     def act(self, obs, test=False):
         with torch.no_grad():
-            a, _ = self.actor(obs, test, False)
+            a = self.actor(obs, test)
             res = a.squeeze().cpu().numpy()
             if not len(res.shape):
                 res = np.expand_dims(res, 0)
