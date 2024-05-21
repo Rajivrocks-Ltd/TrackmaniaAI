@@ -39,10 +39,10 @@ have created, and `<Win Username>` with your Windows username. The `IdentityFile
 ```commandline
 # Global settings if not explicitly specified otherwise.
 Host *
-    user <LU Username>
+    user s1987747
     PreferredAuthentications publickey,password
-    IdentityFile C:\Users\<Win Username>\.ssh\<Private Key>
-    AddKeysToAgent yes
+    IdentityFile C:\Users\ljsch\.ssh\liacs-windows
+    AddKeysToAgent confirm
 
 # SSH Gateway to get access to the Leiden University network.
 Host sshgw.leidenuniv.nl
@@ -83,35 +83,31 @@ Host vibranium
 # - ProxyCommand ssh -W %h:%p ssh.liacs.nl sets up a tunnel to the remote server <servername>.liacs.nl using ssh.liacs.nl 
 # as an intermediary server
 # - LocalForward 1234 <servername>.liacs.nl:22 sets up forwarding of the local port 1234 to the remote server <servername>.liacs.nl on port 22.
-Host silver-tunnel
+
+Host duranium-tunnel
     HostName ssh.liacs.nl
-    # ProxyJump ssh.liacs.nl
-    LocalForward 1234 duranium:22
-    LocalForward 1235 vibranium:22
+    LocalForward 55557 duranium:55557
+    MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com
+    ExitOnForwardFailure yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+Host vibranium-tunnel
+    HostName ssh.liacs.nl
+    LocalForward 55557 vibranium:55557
     MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com
     # This configuration directive tells SSH to terminate the connection attempt if it cannot establish all requested port forwards.
     ExitOnForwardFailure yes
-    # This setting configures the interval, in seconds, that the SSH client will wait before sending a null packet to the server to keep the connection alive. 
-    # This packet is sent if no other data has been transmitted during this interval.
     ServerAliveInterval 60
-    # This directive sets the number of server alive messages (see ServerAliveInterval) which may be sent without SSH receiving any messages back from the server. 
-    # If this limit is reached without receiving any response, SSH will terminate the connection.
     ServerAliveCountMax 3
-
-# Run the command `silver-tunnel` to set up a tunnel in one Powershell window. Now, you can run the following commands:
-# - `ssh -p 1234 <LU username>@localhost` to connect to duranium
-# - `ssh -p 1235 <LU username>@localhost` to connect to vibranium
-# or run one `ssh localduranium` and `ssh localvibranium` to connect to the respective servers.
 
 Host localduranium
     HostName localhost
-    Port 1234
+    Port 55557
 
 Host localvibranium
     HostName localhost
-    Port 1235
-
-
+    Port 55557
 ```
 
 
@@ -177,25 +173,21 @@ ssh-copy-id <LU username>@duranium.liacs.nl
 ## Remote Setup 
 Once the SSH setup has been completed, you can now connect to the remote servers by running the following command:
 ```powershell
-ssh silver-tunnel 
+ssh vibranium-tunnel # or duranium-tunnel 
 ```
-to set up a tunnel in one Powershell window. Then, you can run the following commands to test your connection to each
-respective server:
-```powershell
-ssh -p 1234 <LU username>@localhost
-ssh -p 1235 <LU username>@localhost
+to set up a tunnel in one Powershell window. Then, you can run the following commands to test if the tunnel is working:
+```commandline
+ssh localvibranium # or ssh localduranium to SSH to the respective server.
+python -m http.server 55557 # start a simple HTTP server on the port 55557 on the remote server
 ```
 
-or run one of the following commands to connect to the respective servers:
-```powershell
-ssh localduranium
-ssh localvibranium
-```
-if this has been set up in your SSH config file. Examples of this are also shown in the 
-[Remote Access to REL][remote-access-liacs-rel] document.
+In your web browser, navigate to http://localhost:55557. 
+You should see the default directory listing served by the Python HTTP server, 
+confirming that the tunnel is correctly forwarding traffic.
+
 
 Of course, you can change the ports you wish to LocalForward to in your SSH config file, as long as they are not 
-already in use. To check which ports are in use, you can run the following command:
+already in use. To check which ports are in use, you can run the following command on your own PC:
 ```powershell
 netstat -a -b
 ```
@@ -279,9 +271,10 @@ conda create --name mgaia python=3.11 --verbose
 # Activate the virtual environment
 conda activate mgaia
 
-# Install the tmrl package
+# Install the tmrl package with pip in the conda env.
 pip install tmrl
-# Validate the installation
+
+# Validate the tmrl installation (see tmrl tutorial).
 python -m tmrl --install
 ```
 
