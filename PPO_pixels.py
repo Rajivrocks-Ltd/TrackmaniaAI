@@ -64,6 +64,7 @@ from tmrl.training_offline import TrainingOffline
 # And a couple external libraries:
 import numpy as np
 import os
+import time
 
 
 # Now, let us look into the content of config.json:
@@ -467,9 +468,9 @@ class MyActorModule(TorchActorModule):
         Args:
             path: pathlib.Path: path to where the object will be stored.
         """
-        with open(path, 'w') as json_file:
-            json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
-        # torch.save(self.state_dict(), path)
+        # with open(path, 'w') as json_file:
+        #     json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+        torch.save(self.state_dict(), path)
 
     def load(self, path, device):
         """
@@ -485,11 +486,11 @@ class MyActorModule(TorchActorModule):
             The loaded ActorModule instance
         """
         self.device = device
-        with open(path, 'r') as json_file:
-            state_dict = json.load(json_file, cls=TorchJSONDecoder)
-        self.load_state_dict(state_dict)
+        # with open(path, 'r') as json_file:
+        #     state_dict = json.load(json_file, cls=TorchJSONDecoder)
+        # self.load_state_dict(state_dict)
+        self.load_state_dict(torch.load(path, map_location=self.device))
         self.to_device(device)
-        # self.load_state_dict(torch.load(path, map_location=self.device))
         return self
 
     def forward(self, obs, test=False, compute_logprob=True):
@@ -658,7 +659,8 @@ class PPOTrainingAgent(TrainingAgent):
                  vf_lr=1e-3,
                  train_pi_iters=80,
                  train_v_iters=80,
-                 target_kl=0.01):
+                 target_kl=0.01,
+                 debug=False):
         super().__init__(observation_space=observation_space,
                          action_space=action_space,
                          device=device)
@@ -674,6 +676,7 @@ class PPOTrainingAgent(TrainingAgent):
         self.target_kl = target_kl
         self.pi_optimizer = Adam(self.model.actor.parameters(), lr=self.pi_lr, betas=(0.997, 0.997))
         self.vf_optimizer = Adam(itertools.chain(self.model.q1.parameters(), self.model.q2.parameters()), lr=self.vf_lr, betas=(0.997, 0.997))
+        self.debug = debug
 
     def get_actor(self):
         return self.model_nograd.actor
@@ -697,23 +700,29 @@ class PPOTrainingAgent(TrainingAgent):
         return torch.tensor(returns).to(self.device), torch.tensor(advantages).to(self.device)
 
     def train(self, batch):
+        start_time = time.time()
         o, a, r, o2, d, _ = batch
 
         # Convert batch elements to tensors and move to the specified device
+        conversion_start = time.time()
         o = tuple(item.clone().detach().to(self.device) for item in o)
         a = a.clone().detach().to(self.device)
         r = r.clone().detach().to(self.device)
         o2 = tuple(item.clone().detach().to(self.device) for item in o2)
         d = d.clone().detach().to(self.device)
+        conversion_time = time.time() - conversion_start
 
         # Compute returns and advantages
+        compute_start = time.time()
         ret, adv = self.compute_returns_and_advantages((o, a, r, o2, d, _))
+        compute_time = time.time() - compute_start
 
         # Compute old log probabilities
         with torch.no_grad():
             _, logp_old = self.model.actor(o, compute_logprob=True)
 
         # Policy loss
+        policy_loss_start = time.time()
         for _ in range(self.train_pi_iters):
             pi, logp = self.model.actor(o, compute_logprob=True)
             ratio = torch.exp(logp - logp_old)
@@ -723,8 +732,10 @@ class PPOTrainingAgent(TrainingAgent):
             self.pi_optimizer.zero_grad()
             loss_pi.backward()
             self.pi_optimizer.step()
+        policy_loss_time = time.time() - policy_loss_start
 
         # Value function loss
+        value_loss_start = time.time()
         for _ in range(self.train_v_iters):
             q1 = self.model.q1(o, a)
             q2 = self.model.q2(o, a)
@@ -732,12 +743,24 @@ class PPOTrainingAgent(TrainingAgent):
             self.vf_optimizer.zero_grad()
             loss_v.backward()
             self.vf_optimizer.step()
+        value_loss_time = time.time() - value_loss_start
 
         ret_dict = dict(
             loss_actor=loss_pi.item(),
             loss_critic=loss_v.item(),
             kl_divergence=(logp_old - logp).mean().item()
         )
+
+        end_time = time.time() - start_time
+
+        if self.debug:
+            print(f"Total time: {end_time:.2f}s, "
+                  f"Conversion time: {conversion_time:.2f}s, "
+                  f"Compute time: {compute_time:.2f}s, "
+                  f"Policy Loss time: {policy_loss_time:.2f}s, "
+                  f"Value Loss time: {value_loss_time:.2f}s")
+
+
         return ret_dict
 
 
@@ -754,9 +777,10 @@ training_agent_cls = partial(PPOTrainingAgent,
                              clip_ratio=0.2,
                              pi_lr=3e-4,
                              vf_lr=1e-3,
-                             train_pi_iters=80,
-                             train_v_iters=80,
-                             target_kl=0.01)
+                             train_pi_iters=10,
+                             train_v_iters=10,
+                             target_kl=0.01,
+                             debug=False)
 
 training_cls = partial(
     TrainingOffline,
@@ -803,7 +827,6 @@ if __name__ == "__main__":
                            standalone=args.test)
         rw.run(test_episode_interval=10)
     elif args.server:
-        import time
         serv = Server(port=server_port,
                       password=password,
                       security=security)
