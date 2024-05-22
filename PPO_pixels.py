@@ -66,7 +66,6 @@ import numpy as np
 import os
 import time
 
-
 # Now, let us look into the content of config.json:
 
 # =====================================================================
@@ -159,7 +158,6 @@ dataset_path = cfg.DATASET_PATH
 # (Note: if your script defines the name "obs_preprocessor", we will use your preprocessor instead of the default)
 obs_preprocessor = cfg_obj.OBS_PREPROCESSOR
 
-
 # =====================================================================
 # COMPETITION FIXED PARAMETERS
 # =====================================================================
@@ -170,7 +168,6 @@ env_cls = cfg_obj.ENV_CLS
 
 # Device used for inference on workers (change if you like but keep in mind that the competition evaluation is on CPU)
 device_worker = 'cpu'
-
 
 # =====================================================================
 # ENVIRONMENT PARAMETERS
@@ -199,7 +196,6 @@ imgs_buf_len = cfg.IMG_HIST_LEN
 # (Note: The tutorial will stop working if you change this)
 act_buf_len = cfg.ACT_BUF_LEN
 
-
 # =====================================================================
 # MEMORY CLASS
 # =====================================================================
@@ -217,7 +213,6 @@ memory_cls = partial(memory_base_cls,
                      act_buf_len=act_buf_len,
                      crc_debug=False)
 
-
 # =====================================================================
 # CUSTOM MODEL
 # =====================================================================
@@ -234,7 +229,6 @@ memory_cls = partial(memory_base_cls,
 # that we simply copy/paste and adapt in this tutorial.
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
-
 
 # Let us import the ActorModule that we are supposed to implement.
 # We will use PyTorch in this tutorial.
@@ -288,8 +282,10 @@ def num_flat_features(x):
 
 # The next utility computes the dimensionality of the output in a 2D CNN layer:
 def conv2d_out_dims(conv_layer, h_in, w_in):
-    h_out = floor((h_in + 2 * conv_layer.padding[0] - conv_layer.dilation[0] * (conv_layer.kernel_size[0] - 1) - 1) / conv_layer.stride[0] + 1)
-    w_out = floor((w_in + 2 * conv_layer.padding[1] - conv_layer.dilation[1] * (conv_layer.kernel_size[1] - 1) - 1) / conv_layer.stride[1] + 1)
+    h_out = floor((h_in + 2 * conv_layer.padding[0] - conv_layer.dilation[0] * (conv_layer.kernel_size[0] - 1) - 1) /
+                  conv_layer.stride[0] + 1)
+    w_out = floor((w_in + 2 * conv_layer.padding[1] - conv_layer.dilation[1] * (conv_layer.kernel_size[1] - 1) - 1) /
+                  conv_layer.stride[1] + 1)
     return h_out, w_out
 
 
@@ -403,6 +399,7 @@ class TorchJSONEncoder(json.JSONEncoder):
     """
     Custom JSON encoder for torch tensors, used in the custom save() method of our ActorModule.
     """
+
     def default(self, obj):
         if isinstance(obj, torch.Tensor):
             return obj.cpu().detach().numpy().tolist()
@@ -413,6 +410,7 @@ class TorchJSONDecoder(json.JSONDecoder):
     """
     Custom JSON decoder for torch tensors, used in the custom load() method of our ActorModule.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(object_hook=self.object_hook, *args, **kwargs)
 
@@ -432,6 +430,7 @@ class MyActorModule(TorchActorModule):
 
     (Note: TorchActorModule is a subclass of ActorModule and torch.nn.Module)
     """
+
     def __init__(self, observation_space, action_space):
         """
         When implementing __init__, we need to take the observation_space and action_space arguments.
@@ -575,6 +574,7 @@ class VanillaCNNQFunction(nn.Module):
     """
     Critic module for SAC.
     """
+
     def __init__(self, observation_space, action_space):
         super().__init__()
         self.net = VanillaCNN(q_net=True)  # q_net is True for a critic module
@@ -606,6 +606,7 @@ class VanillaCNNActorCritic(nn.Module):
     """
     Actor-critic module for the SAC algorithm.
     """
+
     def __init__(self, observation_space, action_space):
         super().__init__()
 
@@ -685,19 +686,20 @@ class PPOTrainingAgent(TrainingAgent):
         o, a, r, o2, d, _ = batch
 
         with torch.no_grad():
-            values = self.model.q1(o, a).cpu().numpy()
-            next_values = self.model.q1(o2, a).cpu().numpy()
+            values = self.model.q1(o, a)
+            next_values = self.model.q1(o2, a)
 
-        advantages = []
-        returns = []
+        advantages = torch.zeros_like(r, device=self.device)
+        returns = torch.zeros_like(r, device=self.device)
         gae = 0
         for step in reversed(range(len(r))):
             delta = r[step] + self.gamma * next_values[step] * (1 - d[step]) - values[step]
             gae = delta + self.gamma * self.lam * (1 - d[step]) * gae
-            advantages.insert(0, gae)
-            returns.insert(0, gae + values[step])
+            advantages[step] = gae
+            returns[step] = gae + values[step]
 
-        return torch.tensor(returns).to(self.device), torch.tensor(advantages).to(self.device)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        return returns, advantages
 
     def train(self, batch):
         start_time = time.time()
@@ -705,11 +707,15 @@ class PPOTrainingAgent(TrainingAgent):
 
         # Convert batch elements to tensors and move to the specified device
         conversion_start = time.time()
-        o = tuple(item.clone().detach().to(self.device) for item in o)
-        a = a.clone().detach().to(self.device)
-        r = r.clone().detach().to(self.device)
-        o2 = tuple(item.clone().detach().to(self.device) for item in o2)
-        d = d.clone().detach().to(self.device)
+        o = tuple(
+            item.to(self.device) if isinstance(item, torch.Tensor) else torch.tensor(item, device=self.device) for item
+            in o)
+        a = a.to(self.device) if isinstance(a, torch.Tensor) else torch.tensor(a, device=self.device)
+        r = r.to(self.device) if isinstance(r, torch.Tensor) else torch.tensor(r, device=self.device)
+        o2 = tuple(
+            item.to(self.device) if isinstance(item, torch.Tensor) else torch.tensor(item, device=self.device) for item
+            in o2)
+        d = d.to(self.device) if isinstance(d, torch.Tensor) else torch.tensor(d, device=self.device)
         conversion_time = time.time() - conversion_start
 
         # Compute returns and advantages
@@ -747,7 +753,7 @@ class PPOTrainingAgent(TrainingAgent):
 
         ret_dict = dict(
             loss_actor=loss_pi.item(),
-            loss_critic=loss_v.item(),
+            loss_critc=loss_v.item(),
             kl_divergence=(logp_old - logp).mean().item()
         )
 
@@ -759,7 +765,6 @@ class PPOTrainingAgent(TrainingAgent):
                   f"Compute time: {compute_time:.2f}s, "
                   f"Policy Loss time: {policy_loss_time:.2f}s, "
                   f"Value Loss time: {value_loss_time:.2f}s")
-
 
         return ret_dict
 
@@ -774,7 +779,7 @@ training_agent_cls = partial(PPOTrainingAgent,
                              model_cls=VanillaCNNActorCritic,
                              gamma=0.99,
                              lam=0.95,
-                             clip_ratio=0.2,
+                             clip_ratio=0.6, # Normal value is 0.2
                              pi_lr=3e-4,
                              vf_lr=1e-3,
                              train_pi_iters=10,
