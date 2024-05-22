@@ -817,7 +817,11 @@ if __name__ == "__main__":
                              server_port=server_port,
                              password=password,
                              security=security)
-        my_trainer.run()
+
+        my_trainer.run_with_wandb(entity=wandb_entity,
+                                  project=wandb_project,
+                                  run_id=wandb_run_id)
+
     elif args.worker or args.test:
         rw = RolloutWorker(env_cls=env_cls,
                            actor_module_cls=MyActorModule,
