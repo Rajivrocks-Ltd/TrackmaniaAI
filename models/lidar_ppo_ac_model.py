@@ -118,9 +118,9 @@ class PPOStochasticActor(TorchActorModule)
         mean, log_std = self.forward(obs)
 
         std     = torch.exp(log_std)  # Convert log_std to std
-        dist    = distributions.Normal(mean, std)
+        dist    = Normal(mean, std)
 
-        log_prob = dist.log_prob(action).sum(axis=-1)  # Sum log probs for multi-dimensional actions
+        log_prob = dist.log_prob(actions).sum(axis=-1)  # Sum log probs for multi-dimensional actions
 
         return log_prob
 
