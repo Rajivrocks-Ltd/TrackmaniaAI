@@ -218,7 +218,14 @@ class VanillaCNN(nn.Module):
 
     def forward(self, x):
         
-        images = x[3] # according to the tutorial
+        images = x[3]  # according to the tutorial
+        print(f"Original images shape: {images.shape}")
+
+        # Ensure images have the correct shape
+        if len(images.shape) == 2:
+            images = images.view(-1, imgs_buf_len, img_height, img_width)
+        print(f"Adjusted images shape: {images.shape}")
+
 
         print(images)
         x = F.relu(self.conv1(images))
@@ -462,9 +469,23 @@ class PPOTrainingAgent(TrainingAgent):
 
         # Convert batch elements to tensors and move to the specified device
         conversion_start = time.time()
+
+        def process_lidar_data(data):
+            # Convert to tensor and move to correct device
+            if isinstance(data, torch.Tensor):
+                data = data.to(self.device)
+            else:
+                data = torch.tensor(data, device=self.device)
+
+            # Ensure the LIDAR data has the correct shape
+            if len(data.shape) == 1: # 1D data
+                data = data.unsqueeze(0).unsqueeze(0)
+            elif len(data.shape) == 2: # 2D data
+                data = data.unsqueeze(0)
+
         o = tuple(
-            item.to(self.device) if isinstance(item, torch.Tensor) else torch.tensor(item, device=self.device) for item
-            in o)
+            item.to(self.device) if isinstance(item, torch.Tensor) else torch.tensor(item, device=self.device) for item in o
+        )
         a = a.to(self.device) if isinstance(a, torch.Tensor) else torch.tensor(a, device=self.device)
         r = r.to(self.device) if isinstance(r, torch.Tensor) else torch.tensor(r, device=self.device)
         o2 = tuple(
