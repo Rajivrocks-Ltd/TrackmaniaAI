@@ -15,6 +15,18 @@ os.environ['WANDB_API_KEY'] = wandb_key  # this line sets your wandb API key as 
 
 # Define a class that interfaces with Weights & Biases to plot data for specifc runs and metrics given a project name
 # and entity name
+def plot_metric(metric_name, data_files):
+    fig, ax = plt.subplots()
+    for data_file in data_files:
+        _data = pd.read_csv(data_file)
+        ax.plot(_data[metric_name], label=data_file)
+    ax.set_xlabel("Step")
+    ax.set_ylabel(metric_name)
+    ax.legend()
+    plt.title(f"Comparing {metric_name} for all trained models")
+    plt.show()
+
+
 class Plotting:
     def __init__(self, project_name, entity_name):
         self.project_name = project_name
@@ -27,16 +39,6 @@ class Plotting:
         return data
 
     # plot a specific metric from multiple data files, which are .csv files
-    def plot_metric(self, metric_name, data_files):
-        fig, ax = plt.subplots()
-        for data_file in data_files:
-            _data = pd.read_csv(data_file)
-            ax.plot(_data[metric_name], label=data_file)
-        ax.set_xlabel("Step")
-        ax.set_ylabel(metric_name)
-        ax.legend()
-        plt.title(f"Comparing {metric_name} for all trained models")
-        plt.show()
 
 
 if __name__ == "__main__":
@@ -56,4 +58,4 @@ if __name__ == "__main__":
 
     # plot the metric "loss_critic" from the data file, just an example for now. But this is a rough framework on how
     # we can plot metrics from multiple runs/models
-    plotter.plot_metric("loss_critic", files)
+    plot_metric("loss_critic", files)
