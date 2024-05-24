@@ -55,7 +55,7 @@ def plot_training_metric(data_dir, metric, specific_model=None):
 
 # Define a class that interfaces with Weights & Biases to plot data for specifc runs and metrics given a project name
 # and entity name
-# class DataCollection:
+class DataCollection:
     def __init__(self, project_name, entity_name):
         self.project_name = project_name
         self.entity_name = entity_name
@@ -68,19 +68,23 @@ def plot_training_metric(data_dir, metric, specific_model=None):
 
 
 if __name__ == "__main__":
-    # uncomment if you want to fetch all data from W&B directly (sometimes it fetches partial data and you need to get
-    # the data from the W&B website directly)
+    # # uncomment if you want to fetch all data from W&B directly (sometimes it fetches partial data and you need to get
+    # # the data from the W&B website directly)
     # plotter = DataCollection("tmrl", "tmrl")
     #
-    # data = plotter.collect_data_for_metric(run_id="PPO_short_test_track")
-
-    # if the data directory doesn't exist create it and save the data
-    # if not os.path.exists("data"):
-    #     os.makedirs("data")
-
-    # data is a pandas dataframe, save it as a csv file
-    # data.to_csv(f"data/{wandb_run_id}_data.csv")
-
+    # data = plotter.collect_data_for_metric(run_id=wandb_run_id)
+    #
+    # # # if the data directory doesn't exist create it and save the data
+    # # if not os.path.exists("data"):
+    # #     os.makedirs("data")
+    # #
+    # # data is a pandas dataframe, save it as a csv file
+    # model_dir = "DDPG_CSVs_pixels"
+    # if not os.path.exists(f"data/{model_dir}/full_data"):
+    #     os.makedirs(f"data/{model_dir}/full_data/")
+    #
+    # data.to_csv(f"data/{model_dir}/full_data/{wandb_run_id}_data.csv")
+    #
     # get all files from the data directory and make a list, add the data directory to the list
     # files = [f"data/{f}" for f in os.listdir("data")]
     #
@@ -88,7 +92,9 @@ if __name__ == "__main__":
     # # we can plot metrics from multiple runs/models
     # plot_metric("return_train", files)
 
-    data_directory = "data"  # Change this to your data directory path
-    metric_to_plot = "loss_actor"  # Change this to the metric you want to plot
-    specific_model = None  # Change this to a specific model directory name, or leave as None for all models
-    plot_training_metric(data_directory, metric_to_plot, specific_model)
+
+    # use this to plot the data from the csv file using the plot_training_metric function
+    # data_directory = "data"  # Change this to your data directory path
+    # metric_to_plot = "loss_actor"  # Change this to the metric you want to plot
+    # specific_model = None  # Change this to a specific model directory name, or leave as None for all models
+    # plot_training_metric(data_directory, metric_to_plot, specific_model)
