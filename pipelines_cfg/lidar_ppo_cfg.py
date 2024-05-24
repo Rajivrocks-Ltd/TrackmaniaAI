@@ -8,6 +8,8 @@ from tmrl.custom.custom_memories import MemoryTMLidar, get_local_buffer_sample_l
 from tmrl.training_offline import TorchTrainingOffline
 from tmrl.util import partial
 import tmrl.config.config_constants as cfg
+from model.PPOActorCriticModel import PPOActorCritic, PPOStochasticActor
+from agent.LidarPPOTrainingAgent import LidarPPOTrainingAgent
 
 # from ..models.lidar_ppo_ac_model
 
@@ -15,23 +17,25 @@ import tmrl.config.config_constants as cfg
 # from ..agent.lidar_agent.lidar_ppo_agent import ActorCriticAgent
 
 
-ALG_NAME = "LIDAR-SAC"
+ALG_NAME = "LIDAR-PPO"
 
 # Algorithm hyperparameters
-learn_entropy_coef = False
-lr_actor = 0.00001
-lr_critic = 0.00005
-lr_entropy = 0.0003
+
 gamma = 0.995
 polyak = 0.995
-target_entropy = -0.5
 alpha = 0.01
+lr_actor = 0.00001
+lr_critic = 0.00005
 optimizer_actor = "adam"
 optimizer_critic = "adam"
 betas_actor = [0.997, 0.997]
 betas_critic = [0.997, 0.997]
 l2_actor = 0.0
 l2_critic = 0.0
+
+#learn_entropy_coef = False
+#lr_entropy = 0.0003
+#target_entropy = -0.5
 
 # Other algorithm's parameters
 DUMP_RUN_INSTANCE_FN = None
@@ -40,8 +44,8 @@ UPDATER_FN = update_run_instance if ALG_NAME in ["LIDAR-SAC"] else None
 
 
 # Model and policy
-TRAIN_MODEL = MLPActorCritic
-POLICY = SquashedGaussianMLPActor
+TRAIN_MODEL = PPOActorCritic
+POLICY = PPOStochasticActor
 
 
 # LIDAR Interface and config dict
@@ -74,16 +78,16 @@ ENV_CLS = partial(GenericGymEnv, id=cfg.RTGYM_VERSION, gym_kwargs={"config": CON
 
 # ALGORITHM:
 AGENT = partial(
-        ActorCriticAgent,
+        LidarPPOTrainingAgent,
         device='cuda' if cfg.CUDA_TRAINING else 'cpu',
         model_cls=TRAIN_MODEL,
         lr_actor=lr_actor,
         lr_critic=lr_critic,
-        lr_entropy=lr_entropy,
+        #lr_entropy=lr_entropy,
         gamma=gamma,
         polyak=polyak,
-        learn_entropy_coef=learn_entropy_coef,
-        target_entropy=target_entropy,
+        #learn_entropy_coef=learn_entropy_coef,
+        #target_entropy=target_entropy,
         alpha=alpha,
         optimizer_actor=optimizer_actor,
         optimizer_critic=optimizer_critic,
