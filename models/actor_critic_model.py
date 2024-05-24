@@ -16,6 +16,7 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     return nn.Sequential(*layers)
 
 
+# Variables used for the squashed gaussian used for calculating log probabilities
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 EPSILON = 1e-7
@@ -47,17 +48,12 @@ class SquashedGaussianMLPActor(TorchActorModule):
         # Pre-squash distribution and sample
         pi_distribution = Normal(mu, std)
         if test:
-            # Only used for evaluating policy at test time.
             pi_action = mu
         else:
             pi_action = pi_distribution.rsample()
 
         if with_logprob:
-            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
-            # NOTE: The correction formula is a little bit magic. To get an understanding
-            # of where it comes from, check out the original SAC paper (arXiv 1801.01290)
-            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
-            # Try deriving it yourself as a (very difficult) exercise. :)
+            # Derived from original SAC paper (arXiv 1801.01290)
             logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
             logp_pi -= (2 * (np.log(2) - pi_action - F.softplus(-2 * pi_action))).sum(axis=1)
         else:
@@ -65,8 +61,6 @@ class SquashedGaussianMLPActor(TorchActorModule):
 
         pi_action = torch.tanh(pi_action)
         pi_action = self.act_limit * pi_action
-
-        # pi_action = pi_action.squeeze()
 
         return pi_action, logp_pi
 
@@ -94,21 +88,16 @@ class MLPQFunction(nn.Module):
     def forward(self, obs, act):
         x = torch.cat((*obs, act), -1) if self.tuple_obs else torch.cat((torch.flatten(obs, start_dim=1), act), -1)
         q = self.q(x)
-        return torch.squeeze(q, -1)  # Critical to ensure q has right shape.  # FIXME: understand this
+        return torch.squeeze(q, -1)
 
 
 class MLPActorCritic(nn.Module):
     def __init__(self, observation_space, action_space, hidden_sizes=(256, 256), activation=nn.ReLU):
         super().__init__()
 
-        # obs_dim = observation_space.shape[0]
-        # act_dim = action_space.shape[0]
-        act_limit = action_space.high[0]
-
         # build policy and value functions
         self.actor = SquashedGaussianMLPActor(observation_space, action_space, hidden_sizes, activation)
         self.q1 = MLPQFunction(observation_space, action_space, hidden_sizes, activation)
-        self.q2 = MLPQFunction(observation_space, action_space, hidden_sizes, activation)
 
     def act(self, obs, test=False):
         with torch.no_grad():
