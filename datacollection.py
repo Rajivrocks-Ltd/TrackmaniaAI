@@ -68,24 +68,24 @@ class DataCollection:
 
 
 if __name__ == "__main__":
-    # # uncomment if you want to fetch all data from W&B directly (sometimes it fetches partial data and you need to get
-    # # the data from the W&B website directly)
-    # plotter = DataCollection("tmrl", "tmrl")
+    # uncomment if you want to fetch all data from W&B directly (sometimes it fetches partial data and you need to get
+    # the data from the W&B website directly)
+    plotter = DataCollection("tmrl", "tmrl")
+
+    data = plotter.collect_data_for_metric(run_id=wandb_run_id)
+
+    # # if the data directory doesn't exist create it and save the data
+    # if not os.path.exists("data"):
+    #     os.makedirs("data")
     #
-    # data = plotter.collect_data_for_metric(run_id=wandb_run_id)
-    #
-    # # # if the data directory doesn't exist create it and save the data
-    # # if not os.path.exists("data"):
-    # #     os.makedirs("data")
-    # #
-    # # data is a pandas dataframe, save it as a csv file
-    # model_dir = "DDPG_CSVs_pixels"
-    # if not os.path.exists(f"data/{model_dir}/full_data"):
-    #     os.makedirs(f"data/{model_dir}/full_data/")
-    #
-    # data.to_csv(f"data/{model_dir}/full_data/{wandb_run_id}_data.csv")
-    #
-    # get all files from the data directory and make a list, add the data directory to the list
+    # data is a pandas dataframe, save it as a csv file
+    model_dir = "SAC_single_critic_CSVs_pixels"
+    if not os.path.exists(f"data/{model_dir}/full_data"):
+        os.makedirs(f"data/{model_dir}/full_data/")
+
+    data.to_csv(f"data/{model_dir}/full_data/{wandb_run_id}_data.csv")
+
+    # # get all files from the data directory and make a list, add the data directory to the list
     # files = [f"data/{f}" for f in os.listdir("data")]
     #
     # # plot the metric "loss_critic" from the data file, just an example for now. But this is a rough framework on how
