@@ -79,11 +79,11 @@ if __name__ == "__main__":
     #     os.makedirs("data")
     #
     # data is a pandas dataframe, save it as a csv file
-    model_dir = "SAC_single_critic_CSVs_pixels"
+    model_dir = "SAC_double_critic_CSVs_LIDAR"
     if not os.path.exists(f"data/{model_dir}/full_data"):
         os.makedirs(f"data/{model_dir}/full_data/")
 
-    data.to_csv(f"data/{model_dir}/full_data/{wandb_run_id}_data.csv")
+    data.to_csv(f"data/{model_dir}/full_data/{wandb_run_id}x_data.csv")
 
     # # get all files from the data directory and make a list, add the data directory to the list
     # files = [f"data/{f}" for f in os.listdir("data")]
