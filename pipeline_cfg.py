@@ -82,14 +82,7 @@ AGENT = partial(
         polyak=polyak,
         learn_entropy_coef=learn_entropy_coef,
         target_entropy=target_entropy,
-        alpha=alpha,
-        optimizer_actor=optimizer_actor,
-        optimizer_critic=optimizer_critic,
-        # Take a look if the changes below didn't break the algorithm
-        betas_actor=betas_actor,
-        betas_critic=betas_critic,
-        l2_actor=l2_actor,
-        l2_critic=l2_critic
+        alpha=alpha
     )
 
 # TRAINER:
