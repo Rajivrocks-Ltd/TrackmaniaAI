@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 from argparse import ArgumentParser, ArgumentTypeError
 
 from tmrl.networking import Server, Trainer, RolloutWorker
@@ -7,7 +7,7 @@ from tmrl.envs import GenericGymEnv
 from tmrl.util import partial
 
 import tmrl.config.config_constants as cfg
-import pipelines_cfg.lidar_ppo_cfg as cfg_obj # Import the configuration file for this specific pipeline.
+import pipeline_cfg as cfg_obj
 
 
 def main(args):
