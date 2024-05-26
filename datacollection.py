@@ -79,7 +79,7 @@ if __name__ == "__main__":
     #     os.makedirs("data")
     #
     # data is a pandas dataframe, save it as a csv file
-    model_dir = "SAC_Single_critic_CSVs_LIDAR"
+    model_dir = "PPO_CSVs_LIDAR"
     if not os.path.exists(f"data/{model_dir}/full_data"):
         os.makedirs(f"data/{model_dir}/full_data/")
 
