@@ -2,6 +2,7 @@ import wandb
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
+import re
 
 import tmrl.config.config_constants as cfg
 
@@ -11,46 +12,6 @@ wandb_entity = cfg.TMRL_CONFIG["WANDB_ENTITY"]  # wandb account
 wandb_key = cfg.TMRL_CONFIG["WANDB_KEY"]  # wandb API key
 
 os.environ['WANDB_API_KEY'] = wandb_key  # this line sets your wandb API key as the active key
-
-
-def plot_training_metric(data_dir, metric, specific_model=None):
-    """
-    Plots the specified training metric for models in the given data directory.
-
-    Parameters:
-    - data_dir: str, the directory containing model subdirectories with CSV files
-    - metric: str, the metric to plot ('return_train', 'loss_actor', or 'loss_critic')
-    - specific_model: str, optional, the specific model directory to plot the metric for
-    """
-    if specific_model:
-        model_dirs = [specific_model] if os.path.isdir(os.path.join(data_dir, specific_model)) else []
-    else:
-        model_dirs = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
-
-    if not model_dirs:
-        print("No valid model directories found.")
-        return
-
-    plt.figure(figsize=(10, 6))
-
-    for model in model_dirs:
-        metric_file = os.path.join(data_dir, model, f"{metric}.csv")
-
-        if os.path.exists(metric_file):
-            # Read the CSV file for the given metric
-            df = pd.read_csv(metric_file)
-
-            # Assume the first column is the iteration or time step, and the second column is the metric value
-            plt.plot(df.iloc[:, 0], df.iloc[:, 1], label=model)
-        else:
-            print(f"Warning: {metric_file} does not exist for model {model}.")
-
-    plt.xlabel('Iteration/Steps')
-    plt.ylabel(metric.replace('_', ' ').title())
-    plt.title(f"{metric.replace('_', ' ').title()} over Training")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
 
 
 def smooth_curve(values, window_size):
@@ -162,6 +123,89 @@ def return_model_dirs(model_name: str) -> tuple:
         raise ValueError("Could not find corresponding 'pixels' and 'LIDAR' directories for the given model name.")
 
 
+def parse_run_time(run_time_str):
+    """
+    Parses a run time string in the format '<99h 99m 59s>' and returns the total time in seconds.
+
+    Parameters:
+    - run_time_str: str, run time string in the format '<99h 99m 59s>'
+
+    Returns:
+    - total_seconds: int, total run time in minutes
+    """
+    match = re.match(r'(?:(\d+)h\s*)?(?:(\d+)m\s*)?(?:(\d+)s)?', run_time_str)
+    if match:
+        hours, minutes, seconds = match.groups()
+        hours = int(hours) if hours else 0
+        minutes = int(minutes) if minutes else 0
+        seconds = int(seconds) if seconds else 0
+        total_seconds = hours * 60 + minutes + seconds / 60
+        return total_seconds
+    else:
+        raise ValueError(f"Invalid run time format: {run_time_str}")
+
+
+def process_folder_name(folder_name):
+    """
+    Processes the folder name to only use the first and last word in the string,
+    split by underscores.
+
+    Parameters:
+    - folder_name: str, the original folder name
+
+    Returns:
+    - processed_name: str, the processed folder name
+    """
+    parts = folder_name.split("_")
+    if len(parts) > 1:
+        return f"{parts[0]} {parts[-1]}"
+    else:
+        return folder_name
+
+
+def plot_run_times(data_dir):
+    """
+    Plots a bar graph of the run times for each folder in the data directory.
+
+    Parameters:
+    - data_dir: str, the directory containing the subdirectories with 'run_time.txt' files
+    """
+    run_times = {}
+
+    for folder in os.listdir(data_dir):
+        folder_path = os.path.join(data_dir, folder)
+        if os.path.isdir(folder_path):
+            run_time_file = os.path.join(folder_path, 'run_time.txt')
+            if os.path.exists(run_time_file):
+                with open(run_time_file, 'r') as file:
+                    run_time_str = file.readline().strip()
+                    try:
+                        total_minutes = parse_run_time(run_time_str)
+                        run_times[folder] = total_minutes
+                    except ValueError as e:
+                        print(e)
+
+    # Sort by folder name for consistent bar placement
+    sorted_folders = sorted(run_times.keys())
+    sorted_times = [run_times[folder] for folder in sorted_folders]
+    processed_names = [process_folder_name(folder) for folder in sorted_folders]
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(processed_names, sorted_times, color='orange')
+    plt.xlabel('Models')
+    plt.ylabel('Run Time (minutes)')
+    plt.title('Train Time for Each Model in Minutes')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+
+    if not os.path.exists("plot"):
+        os.makedirs("plot")
+    plt.savefig(f"{os.getcwd()}/plot/run_times.png")
+
+    plt.show()
+
+
+
 # Define a class that interfaces with Weights & Biases to plot data for specifc runs and metrics given a project name
 # and entity name
 class DataCollection:
@@ -208,9 +252,12 @@ if __name__ == "__main__":
     # plot_training_metric(data_directory, metric_to_plot, specific_model)
 
     # use this to compare the metrics from two different directories using the compare_metrics function
-    metrics = ["return_train.csv", "loss_actor.csv", "loss_critic.csv"]
+    # metrics = ["return_train.csv", "loss_actor.csv", "loss_critic.csv"]
     smooth_metrics = ["return_train.csv", "loss_actor.csv", "loss_critic.csv"]
 
     dir1, dir2 = return_model_dirs("DDPG") # Fetch the directories for the given model name
     for metric_file in metrics: # For all metrics, compare the two models with a plot
         compare_metrics(dir1, dir2, metric_file, smooth_metrics=smooth_metrics, window_size=10, save=True)
+
+    # use this to plot the run times for each folder in the data directory
+    plot_run_times("data")
