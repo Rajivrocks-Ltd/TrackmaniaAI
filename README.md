@@ -20,7 +20,6 @@ The reward file is located in the `reward pickle file` folder in the root direct
 ## General Information
 The project is structured as follows:
 - `README.md`: The README file that you are currently reading.
-- `requirements.txt`: Contains the required packages to run the project.
 - `configs`: Contains the `config.json` files for each implemented algorithm
 - `train_files`: Contains the custom track and reward pickle file used for training an agent with TMRL.
 - `data`: Contains the results from training the agents.
@@ -66,7 +65,7 @@ To make training and inference work with our own track, a few files need to be c
 
 Following these steps, you should have the `reward.pkl` file in the correct directory and the custom track in the correct directory.
 This `reward.pkl` file is specifically tailored towards our own track, so it will not work for other tracks. More 
-information on how to create your own reward function can be found in the `tmrl` repository (see: )
+information on how to create your own reward function can be found in the `tmrl` repository (see: ['Getting started'][getting_started_md])
 
 
 ## Training
