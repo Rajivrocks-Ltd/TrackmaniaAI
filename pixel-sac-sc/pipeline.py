@@ -1,8 +1,7 @@
 from tmrl.util import partial
-from actors.trainingAgent2 import SACTrainingAgent2
-from actors.ActorCritic2 import VanillaCNNActorCritic2
-from actors.BaseActor2 import MyActorModule2
-from modules.VanillaCNN2 import VanillaCNN2, VanillaCNNQFunction2
+from trainingAgent2 import SACTrainingAgent2
+from ActorCritic2 import VanillaCNNActorCritic2
+from BaseActor2 import MyActorModule2
 import tmrl.config.config_constants as cfg
 import tmrl.config.config_objects as cfg_obj
 from tmrl.networking import Trainer, RolloutWorker, Server

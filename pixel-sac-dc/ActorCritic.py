@@ -1,8 +1,7 @@
-import torch
 import torch.nn as nn
-from modules.VanillaCNNCritic import VanillaCNNQFunction
-from actors.baseActor import MyActorModule
-from modules.VanillaCNN_base import VanillaCNN
+from VanillaCNNCritic import VanillaCNNQFunction
+from baseActor import MyActorModule
+
 
 # Finally, let us merge this together into an actor-critic torch.nn.module for training.
 # Classically, we use one actor and two parallel critics to alleviate the overestimation bias.

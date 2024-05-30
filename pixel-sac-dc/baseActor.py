@@ -1,9 +1,7 @@
 from tmrl.actor import TorchActorModule
 import torch
 import torch.nn as nn
-from auxiliary.create_jsons import TorchJSONDecoder, TorchJSONEncoder
-from modules.VanillaCNN_base import VanillaCNN
-import json
+from VanillaCNN_base import VanillaCNN
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
 import numpy as np
@@ -58,9 +56,9 @@ class MyActorModule(TorchActorModule):
         Args:
             path: pathlib.Path: path to where the object will be stored.
         """
-        with open(path, 'w') as json_file:
-            json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
-        # torch.save(self.state_dict(), path)
+        # with open(path, 'w') as json_file:
+        #     json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+        torch.save(self.state_dict(), path)
 
     def load(self, path, device):
         """
@@ -76,11 +74,11 @@ class MyActorModule(TorchActorModule):
             The loaded ActorModule instance
         """
         self.device = device
-        with open(path, 'r') as json_file:
-            state_dict = json.load(json_file, cls=TorchJSONDecoder)
-        self.load_state_dict(state_dict)
+        # with open(path, 'r') as json_file:
+        #     state_dict = json.load(json_file, cls=TorchJSONDecoder)
+        # self.load_state_dict(state_dict)
+        self.load_state_dict(torch.load(path, map_location=self.device))
         self.to_device(device)
-        # self.load_state_dict(torch.load(path, map_location=self.device))
         return self
 
     def forward(self, obs, test=False, compute_logprob=True):

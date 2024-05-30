@@ -1,9 +1,7 @@
 from tmrl.actor import TorchActorModule
 import torch
 import torch.nn as nn
-from auxiliary.create_jsons import TorchJSONDecoder, TorchJSONEncoder
-from modules.VanillaCNN2 import VanillaCNN2
-import json
+from VanillaCNN2 import VanillaCNN2
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
 import numpy as np
@@ -12,6 +10,7 @@ import numpy as np
 # that we simply copy/paste and adapt in this tutorial.
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
+
 
 class MyActorModule2(TorchActorModule):
     """
@@ -22,6 +21,7 @@ class MyActorModule2(TorchActorModule):
 
     (Note: TorchActorModule is a subclass of ActorModule and torch.nn.Module)
     """
+
     def __init__(self, observation_space, action_space):
         """
         When implementing __init__, we need to take the observation_space and action_space arguments.
@@ -47,18 +47,19 @@ class MyActorModule2(TorchActorModule):
 
     def save(self, path):
 
-        with open(path, 'w') as json_file:
-            json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
-        # torch.save(self.state_dict(), path)
+        # with open(path, 'w') as json_file:
+        #     json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+        torch.save(self.state_dict(), path)
 
+    import json
     def load(self, path, device):
 
         self.device = device
-        with open(path, 'r') as json_file:
-            state_dict = json.load(json_file, cls=TorchJSONDecoder)
-        self.load_state_dict(state_dict)
+        # with open(path, 'r') as json_file:
+        #     state_dict = json.load(json_file, cls=TorchJSONDecoder)
+        # self.load_state_dict(state_dict)
+        self.load_state_dict(torch.load(path, map_location=self.device))
         self.to_device(device)
-        # self.load_state_dict(torch.load(path, map_location=self.device))
         return self
 
     def forward(self, obs, test=False, compute_logprob=True):
@@ -90,7 +91,6 @@ class MyActorModule2(TorchActorModule):
         pi_action = pi_action.squeeze()
         return pi_action, logp_pi
 
-
     def act(self, obs, test=False):
         """
         Args:
@@ -103,4 +103,3 @@ class MyActorModule2(TorchActorModule):
         with torch.no_grad():
             a, _ = self.forward(obs=obs, test=test, compute_logprob=False)
             return a.cpu().numpy()
-

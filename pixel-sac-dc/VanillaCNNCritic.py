@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from modules.VanillaCNN_base import VanillaCNN
+from VanillaCNN_base import VanillaCNN
 
 
 # The critic module for SAC is now super straightforward:

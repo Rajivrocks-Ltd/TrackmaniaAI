@@ -2,17 +2,13 @@ from tmrl.training import TrainingAgent
 from tmrl.custom.utils.nn import copy_shared, no_grad
 from tmrl.util import cached_property
 from copy import deepcopy
-import itertools
 from torch.optim import Adam
 import torch
-from actors.ActorCritic import VanillaCNNActorCritic
-from modules.VanillaCNN_base import VanillaCNN
+import itertools
+from ActorCritic2 import VanillaCNNActorCritic2
 
-# A TrainingAgent must implement two methods:
-# -> train(batch): optimizes the model from a batch of RL samples
-# -> get_actor(): outputs a copy of the current ActorModule
 
-class SACTrainingAgent(TrainingAgent):
+class SACTrainingAgent2(TrainingAgent):
     """
     Custom TrainingAgents implement two methods: train(batch) and get_actor().
     The train method performs a training step.
@@ -31,7 +27,7 @@ class SACTrainingAgent(TrainingAgent):
                  observation_space=None,  # Gymnasium observation space (required argument here for your convenience)
                  action_space=None,  # Gymnasium action space (required argument here for your convenience)
                  device=None,  # Device our TrainingAgent should use for training (required argument)
-                 model_cls=VanillaCNNActorCritic,  # An actor-critic module, encapsulating our ActorModule
+                 model_cls=VanillaCNNActorCritic2,  # An actor-critic module, encapsulating our ActorModule
                  gamma=0.99,  # Discount factor
                  polyak=0.995,  # Exponential averaging factor for the target critic
                  alpha=0.2,  # Value of the entropy coefficient
@@ -52,24 +48,16 @@ class SACTrainingAgent(TrainingAgent):
         self.alpha = alpha
         self.lr_actor = lr_actor
         self.lr_critic = lr_critic
-        self.q_params = itertools.chain(self.model.q1.parameters(), self.model.q2.parameters())
+        self.q_params = itertools.chain(self.model.q.parameters())
         self.pi_optimizer = Adam(self.model.actor.parameters(), lr=self.lr_actor)
         self.q_optimizer = Adam(self.q_params, lr=self.lr_critic)
         self.alpha_t = torch.tensor(float(self.alpha)).to(self.device)
 
     def get_actor(self):
-        """
-        Returns a copy of the current ActorModule.
-        We return a copy without gradients, as this is for sending to the RolloutWorkers.
-        Returns:
-            actor: ActorModule: updated actor module to forward to the worker(s)
-        """
         return self.model_nograd.actor
 
     def train(self, batch):
         """
-        Executes a training iteration from batched training samples (batches of RL transitions).
-
         A training sample is of the form (o, a, r, o2, d, t) where:
         -> o is the initial observation of the transition
         -> a is the selected action during the transition
@@ -77,12 +65,6 @@ class SACTrainingAgent(TrainingAgent):
         -> o2 is the final observation of the transition
         -> d is the "terminated" signal indicating whether o2 is a terminal state
         -> t is the "truncated" signal indicating whether the episode has been truncated by a time-limit
-
-        Args:
-            batch: (previous observation, action, reward, new observation, terminated signal, truncated signal)
-
-        Returns:
-            logs: Dictionary: a python dictionary of training metrics you wish to log on wandb
         """
         # First, we decompose our batch into its relevant components, ignoring the "truncated" signal:
         o, a, r, o2, d, _ = batch
@@ -91,21 +73,16 @@ class SACTrainingAgent(TrainingAgent):
         pi, logp_pi = self.model.actor(obs=o, test=False, compute_logprob=True)
 
         # We also compute our action-value estimates for the current transition:
-        q1 = self.model.q1(o, a)
-        q2 = self.model.q2(o, a)
+        q = self.model.q(o, a)
 
         # Now we compute our value target, for which we need to detach from gradients computation:
         with torch.no_grad():
             a2, logp_a2 = self.model.actor(o2)
-            q1_pi_targ = self.model_target.q1(o2, a2)
-            q2_pi_targ = self.model_target.q2(o2, a2)
-            q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+            q_pi_targ = self.model_target.q(o2, a2)
             backup = r + self.gamma * (1 - d) * (q_pi_targ - self.alpha_t * logp_a2)
 
         # This gives us our critic loss, as the difference between the target and the estimate:
-        loss_q1 = ((q1 - backup)**2).mean()
-        loss_q2 = ((q2 - backup)**2).mean()
-        loss_q = loss_q1 + loss_q2
+        loss_q = ((q - backup)**2).mean()
 
         # We can now take an optimization step to train our critics in the opposite direction of this loss' gradient:
         self.q_optimizer.zero_grad()
@@ -117,9 +94,7 @@ class SACTrainingAgent(TrainingAgent):
             p.requires_grad = False
 
         # We use the critics to estimate the value of the action we have sampled in the current policy:
-        q1_pi = self.model.q1(o, pi)
-        q2_pi = self.model.q2(o, pi)
-        q_pi = torch.min(q1_pi, q2_pi)
+        q_pi = self.model.q(o, pi)
 
         # Our policy loss is now the opposite of this value estimate, augmented with the entropy of the current policy:
         loss_pi = (self.alpha_t * logp_pi - q_pi).mean()

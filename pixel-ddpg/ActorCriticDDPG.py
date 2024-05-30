@@ -1,12 +1,13 @@
-import torch
 import torch.nn as nn
-from modules.CNN import VanillaCNNQFunctionDDPG
-from actors.ActorModuleDDPG import MyActorModuleDDPG
+from CNN import VanillaCNNQFunctionDDPG
+from ActorModuleDDPG import MyActorModuleDDPG
+
 
 class VanillaCNNActorCriticDDPG(nn.Module):
     """
     Actor-critic module adapted for the DDPG algorithm.
     """
+
     def __init__(self, observation_space, action_space):
         super().__init__()
 

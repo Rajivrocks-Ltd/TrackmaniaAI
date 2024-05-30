@@ -1,7 +1,7 @@
 from tmrl.util import partial
-from actors.trainingAgentDuelingDQN import DuelingDQNTrainingAgent
-from actors.DuelingDQNActor import MyDuelingDQNActorModule
-from modules.DuelingCNN import DuelingCNN
+from trainingAgent import SACTrainingAgent
+from ActorCritic import VanillaCNNActorCritic
+from baseActor import MyActorModule
 import tmrl.config.config_constants as cfg
 import tmrl.config.config_objects as cfg_obj
 from tmrl.networking import Trainer, RolloutWorker, Server
@@ -60,13 +60,13 @@ memory_cls = partial(memory_base_cls,
                      crc_debug=False)
 
 # Partially instantiate the training agent
-training_agent_cls = partial(DuelingDQNTrainingAgent,
-                             model_cls=MyDuelingDQNActorModule,
+training_agent_cls = partial(SACTrainingAgent,
+                             model_cls=VanillaCNNActorCritic,
                              gamma=0.99,
-                             lr=0.001,
-                             batch_size=batch_size,
-                             memory_size=memory_size,
-                             update_buffer_interval=update_buffer_interval)
+                             polyak=0.995,
+                             alpha=0.02,
+                             lr_actor=0.000005,
+                             lr_critic=0.00003)
 
 # TMRL Trainer
 
@@ -77,6 +77,7 @@ training_cls = partial(TrainingOffline,
                        epochs=epochs,
                        rounds=rounds,
                        steps=steps,
+                       update_buffer_interval=update_buffer_interval,
                        update_model_interval=update_model_interval,
                        max_training_steps_per_env_step=max_training_steps_per_env_step,
                        start_training=start_training,
@@ -103,7 +104,7 @@ if __name__ == "__main__":
 
     elif args.worker or args.test:
         rw = RolloutWorker(env_cls=env_cls,
-                           actor_module_cls=MyDuelingDQNActorModule,
+                           actor_module_cls=MyActorModule,
                            sample_compressor=sample_compressor,
                            device=device_worker,
                            server_ip=server_ip_for_worker,

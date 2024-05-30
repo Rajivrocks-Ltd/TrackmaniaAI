@@ -1,8 +1,7 @@
-import torch
 import torch.nn as nn
-from modules.VanillaCNN2 import VanillaCNNQFunction2
-from actors.BaseActor2 import MyActorModule2
-from modules.VanillaCNN2 import VanillaCNN2
+from VanillaCNN2 import VanillaCNNQFunction2
+from BaseActor2 import MyActorModule2
+
 
 class VanillaCNNActorCritic2(nn.Module):
     """
