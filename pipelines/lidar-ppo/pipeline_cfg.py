@@ -9,8 +9,8 @@ from tmrl.training_offline import TorchTrainingOffline
 from tmrl.util import partial
 import tmrl.config.config_constants as cfg
 
-from model.PPO_model import MLPActorCritic, SquashedGaussianMLPActor
-from agent.PPO_training_agent import PPOTrainingAgent
+from PPO_model import MLPActorCritic, SquashedGaussianMLPActor
+from PPO_training_agent import PPOTrainingAgent
 
 
 ALG_NAME = "LIDAR-PPO"
