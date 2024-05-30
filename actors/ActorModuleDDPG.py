@@ -1,10 +1,11 @@
 from tmrl.actor import TorchActorModule
 import torch
 import torch.nn as nn
-from CNN import VanillaCNN2
-from OUNoise import OUNoise
+from auxiliary.create_jsons import TorchJSONDecoder, TorchJSONEncoder
+from modules.CNN import VanillaCNN2
+import json
+from modules.OUNoise import OUNoise
 import numpy as np
-
 
 class MyActorModuleDDPG(TorchActorModule):
     """
@@ -26,17 +27,17 @@ class MyActorModuleDDPG(TorchActorModule):
         self.noise = OUNoise(dim_act)
 
     def save(self, path):
-        # with open(path, 'w') as json_file:
-        #     json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
-        torch.save(self.state_dict(), path)
+        with open(path, 'w') as json_file:
+            json.dump(self.state_dict(), json_file, cls=TorchJSONEncoder)
+        # torch.save(self.state_dict(), path)
 
     def load(self, path, device):
         self.device = device
-        # with open(path, 'r') as json_file:
-        #     state_dict = json.load(json_file, cls=TorchJSONDecoder)
-        # self.load_state_dict(state_dict)
-        self.load_state_dict(torch.load(path, map_location=self.device))
+        with open(path, 'r') as json_file:
+            state_dict = json.load(json_file, cls=TorchJSONDecoder)
+        self.load_state_dict(state_dict)
         self.to_device(device)
+        # self.load_state_dict(torch.load(path, map_location=self.device))
         return self
 
     def forward(self, obs, test=False):

@@ -4,10 +4,11 @@ from tmrl.util import cached_property
 from copy import deepcopy
 from torch.optim import Adam
 import torch
-from ActorCriticDDPG import VanillaCNNActorCriticDDPG
+import itertools
+from actors.ActorCritic2 import VanillaCNNActorCritic2
+from modules.VanillaCNN2 import VanillaCNN2
 
-
-class DDPGTrainingAgent(TrainingAgent):
+class SACTrainingAgent2(TrainingAgent):
     """
     Custom TrainingAgents implement two methods: train(batch) and get_actor().
     The train method performs a training step.
@@ -26,9 +27,10 @@ class DDPGTrainingAgent(TrainingAgent):
                  observation_space=None,  # Gymnasium observation space (required argument here for your convenience)
                  action_space=None,  # Gymnasium action space (required argument here for your convenience)
                  device=None,  # Device our TrainingAgent should use for training (required argument)
-                 model_cls=VanillaCNNActorCriticDDPG,  # An actor-critic module, encapsulating our ActorModule
+                 model_cls=VanillaCNNActorCritic2,  # An actor-critic module, encapsulating our ActorModule
                  gamma=0.99,  # Discount factor
                  polyak=0.995,  # Exponential averaging factor for the target critic
+                 alpha=0.2,  # Value of the entropy coefficient
                  lr_actor=1e-3,  # Learning rate for the actor
                  lr_critic=1e-3):  # Learning rate for the critic
 
@@ -41,15 +43,15 @@ class DDPGTrainingAgent(TrainingAgent):
         model = model_cls(observation_space, action_space)
         self.model = model.to(self.device)
         self.model_target = no_grad(deepcopy(self.model))
-
         self.gamma = gamma
         self.polyak = polyak
+        self.alpha = alpha
         self.lr_actor = lr_actor
         self.lr_critic = lr_critic
-
-        # self.q_params = itertools.chain(self.model.q.parameters())
-        self.actor_optimizer = Adam(self.model.actor.parameters(), lr=self.lr_actor)
-        self.critic_optimizer = Adam(self.model.critic.parameters(), lr=self.lr_critic)
+        self.q_params = itertools.chain(self.model.q.parameters())
+        self.pi_optimizer = Adam(self.model.actor.parameters(), lr=self.lr_actor)
+        self.q_optimizer = Adam(self.q_params, lr=self.lr_critic)
+        self.alpha_t = torch.tensor(float(self.alpha)).to(self.device)
 
     def get_actor(self):
         return self.model_nograd.actor
@@ -67,46 +69,54 @@ class DDPGTrainingAgent(TrainingAgent):
         # First, we decompose our batch into its relevant components, ignoring the "truncated" signal:
         o, a, r, o2, d, _ = batch
 
-        with torch.no_grad():
-            a2 = self.model_target.actor(o2)
-            q_target = self.model_target.critic(o2, a2)
-            backup = r + self.gamma * (1 - d) * q_target
+        # We sample an action in the current policy and retrieve its corresponding log probability:
+        pi, logp_pi = self.model.actor(obs=o, test=False, compute_logprob=True)
 
-        q = self.model.critic(o, a)
+        # We also compute our action-value estimates for the current transition:
+        q = self.model.q(o, a)
+
+        # Now we compute our value target, for which we need to detach from gradients computation:
+        with torch.no_grad():
+            a2, logp_a2 = self.model.actor(o2)
+            q_pi_targ = self.model_target.q(o2, a2)
+            backup = r + self.gamma * (1 - d) * (q_pi_targ - self.alpha_t * logp_a2)
 
         # This gives us our critic loss, as the difference between the target and the estimate:
-        critic_loss = ((q - backup) ** 2).mean()  # equivalent to the MSE loss
+        loss_q = ((q - backup)**2).mean()
 
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        self.critic_optimizer.step()
+        # We can now take an optimization step to train our critics in the opposite direction of this loss' gradient:
+        self.q_optimizer.zero_grad()
+        loss_q.backward()
+        self.q_optimizer.step()
 
-        pi = self.model.actor(o)
+        # For the policy optimization step, we detach our critics from the gradient computation graph:
+        for p in self.q_params:
+            p.requires_grad = False
 
-        # Adding a part to detach the critic from the gradient computation graph
-        for param in self.model.parameters():
-            param.requires_grad = False
+        # We use the critics to estimate the value of the action we have sampled in the current policy:
+        q_pi = self.model.q(o, pi)
 
-        actor_loss = -self.model.critic(o, pi).mean()
+        # Our policy loss is now the opposite of this value estimate, augmented with the entropy of the current policy:
+        loss_pi = (self.alpha_t * logp_pi - q_pi).mean()
 
         # Now we can train our policy in the opposite direction of this loss' gradient:
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        self.actor_optimizer.step()
+        self.pi_optimizer.zero_grad()
+        loss_pi.backward()
+        self.pi_optimizer.step()
 
-        # Adding the part to attach back the critic into the gradient computation graph
-        for param in self.model.parameters():
-            param.requires_grad = True
+        # We attach the critics back into the gradient computation graph:
+        for p in self.q_params:
+            p.requires_grad = True
 
         # Finally, we update our target model with a slowly moving exponential average:
         with torch.no_grad():
-            for param, param_targ in zip(self.model.parameters(), self.model_target.parameters()):
-                param_targ.data.mul_(self.polyak)
-                param_targ.data.add_((1 - self.polyak) * param.data)
+            for p, p_targ in zip(self.model.parameters(), self.model_target.parameters()):
+                p_targ.data.mul_(self.polyak)
+                p_targ.data.add_((1 - self.polyak) * p.data)
 
         # TMRL enables us to log training metrics to wandb:
         ret_dict = dict(
-            loss_actor=actor_loss.detach().item(),
-            loss_critic=critic_loss.detach().item(),
+            loss_actor=loss_pi.detach().item(),
+            loss_critic=loss_q.detach().item(),
         )
         return ret_dict

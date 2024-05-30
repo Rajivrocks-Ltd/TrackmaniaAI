@@ -1,7 +1,9 @@
 from tmrl.util import partial
-from trainingAgentDDPG import DDPGTrainingAgent
-from ActorCriticDDPG import VanillaCNNActorCriticDDPG
-from ActorModuleDDPG import MyActorModuleDDPG
+from actors.trainingAgentDDPG import DDPGTrainingAgent
+from actors.ActorCriticDDPG import VanillaCNNActorCriticDDPG
+from actors.ActorModuleDDPG import MyActorModuleDDPG
+from modules.CNN import VanillaCNN2, VanillaCNNQFunctionDDPG
+from modules.OUNoise import OUNoise
 import tmrl.config.config_constants as cfg
 import tmrl.config.config_objects as cfg_obj
 from tmrl.networking import Trainer, RolloutWorker, Server
